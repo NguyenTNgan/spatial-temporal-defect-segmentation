@@ -1,78 +1,159 @@
-# Spatial-Temporal Defect Segmentation in Composite Laminates using Active Thermography
+# Spatial-Temporal Defect Segmentation in CFRP Laminates using Active Thermography
 
-This repository contains an independent engineering implementation and benchmarking framework for subsurface defect detection in Carbon Fiber-Reinforced Polymer (CFRP) laminates. The project focuses on processing multi-frame temporal thermal signatures to segment hidden structural anomalies, serving as a practical exploration of advanced industrial metrology pipelines.
-
-## Project Overview
-Detecting sub-surface defects in multi-layered structures presents severe signal-to-noise ratio (SNR) challenges, as anomalies are heavily obscured by surface non-uniformity and sensor background noise. 
-
-This framework takes a physics-informed approach to machine vision:
-1. **Signal Preprocessing & Enhancement:** Evaluates temporal heat dissipation behavior following an active thermal excitation pulse.
-2. **Feature Extraction Layer:** Isolates peak-contrast frames to compile low-noise multi-channel input tensors.
-3. **Semantic Segmentation Network:** Trains deep learning architectures (U-Net / DeepLabv3+) to precisely map the geometries of subsurface delaminations.
+This repository implements a deep learning pipeline for pixel-level defect segmentation in Carbon Fiber Reinforced Polymer (CFRP) laminates using active thermal imaging data. The system is based on a U-Net architecture trained on paired infrared images and expert-annotated masks.
 
 ---
 
-## Dataset Characteristics
-This implementation utilizes the public **Thermal Inspection Dataset for Defect Segmentation in CFRP Laminates** provided by Garcia Vargas & Fernandes (2025) via Mendeley Data.
+## Problem Statement
 
-### Specimen Metrology & Parameters:
-* **Material Composition:** Unidirectional carbon/PEEK laminate (APC-2/AS4), 61% fiber volume fraction.
-* **Structural Lay-up:** $[0_2/90_2]_6$ stacking sequence, dimensions $100 \times 100\text{ mm}$.
-* **Target Anomalies:** Artificial Kapton tape inserts introduced during moulding to simulate internal voids and delaminations.
-  * **Nominal Dimensions:** $2 \times 2\text{ mm}$, $3 \times 3\text{ mm}$, $4 \times 4\text{ mm}$.
-  * **Target Depths:** $D1 = 0.13\text{ mm}$, $D2 = 0.26\text{ mm}$, $D3 = 0.39\text{ mm}$.
+Detecting subsurface defects in composite materials is challenging due to:
 
-### Sensor Configuration:
-* **Modality:** Pulsed Thermography (PT) under active optical excitation.
-* **Detector:** Midwave Infrared (MWIR) photon-counting camera.
-* **Resolution & Dynamics:** $640 \times 512$ pixels captured at a transient frame rate of $55\text{ Hz}$ (1,034 total sequence frames).
+- Extremely low contrast between defect and background
+- Severe class imbalance (very small defect regions)
+- Noise in thermal response signals
+- High variability in defect shape and depth
+
+This project addresses these challenges using a supervised segmentation approach with deep convolutional networks.
 
 ---
 
-## Implementation Details
+## Dataset
 
-### Core Technical Focus:
-* **Data Allocation:** Automatic pipeline synchronization of raw thermal tracking arrays and corresponding expert-labeled ground-truth masks.
-* **Imbalance Optimization:** Custom implementation of specialized loss configurations (Dice and Focal Loss options) to counteract high class-imbalance boundaries where sound laminate background values dominate over defect regions.
-* **Industrial Validation Strategy:** Post-processing layers engineered to isolate regional cluster statistics, determining continuous defect coverage areas ($mm^2$) to simulate real-world automated quality verification criteria.
+Garcia Vargas, I., & Fernandes, H. (2025).  
+Thermal Inspection Dataset for Defect Segmentation in CFRP Laminates.  
+https://data.mendeley.com/datasets/jrsb4b9yy5
+
+- Composite material: Carbon/PEEK (APC-2/AS4)
+- Layup: [0₂/90₂]₆
+- Specimen size: 100 × 100 mm
+- Defect type: Kapton inserts simulating delaminations
+- Defect sizes: 2×2 mm, 3×3 mm, 4×4 mm
+- Depths: 0.13 mm, 0.26 mm, 0.39 mm
+- Imaging method: Pulsed thermography
+- Sensor: MWIR infrared camera (640 × 512, 55 Hz)
 
 ---
 
-## Technical Stack & Dependencies
-* **Language Environment:** Python
-* **Vision & Matrix Processing:** OpenCV, NumPy, Scikit-Image
-* **Deep Learning Framework:** PyTorch, Torchvision
-* **Hardware Utilization:** Google Colab Pro Runtime (NVIDIA T4 / V100 Acceleration)
+## Data Preprocessing
+
+Performed in Google Colab:
+
+- Extract dataset from Google Drive ZIP file
+- Unzip `originalData.zip` and `annotatedData.zip`
+- Flatten directory structure
+- Remove system files (`._*`, `__MACOSX`)
+- Match images and masks by filename
+- Normalize pixel values to [0, 1]
+- Resize images to 234 × 234
+- Convert to PyTorch tensors
+
+Final dataset size:
+- 1034 image-mask pairs
 
 ---
 
-## Data License, Citations, and Acknowledgments
+## Model Architecture
 
-### Data Source Attribution
-The original raw thermal sequences, ground-truth annotations, and expert-labeled masks are used under license from the contributors via Elsevier Mendeley Data. 
+U-Net segmentation model:
 
-* **Repository Link:** [Mendeley Data - Thermal Inspection Dataset for Defect Segmentation in CFRP Laminates](https://data.mendeley.com/datasets/jrsb4b9yy5)
+- Encoder-decoder structure
+- Skip connections
+- 3 downsampling + 3 upsampling stages
+- Double convolution blocks (Conv → BatchNorm → ReLU)
+- Output: 1-channel binary segmentation mask
 
-### Academic Citations
-If you utilize this repository or build upon this derivative framework, please properly credit the original authors of the dataset and the associated baseline methodology:
+---
+
+## Loss Function
+
+Combined loss:
+
+- Binary Cross Entropy with Logits Loss (BCEWithLogitsLoss)
+- Dice Loss (handles extreme class imbalance)
+
+---
+
+## Training Setup
+
+- Train/validation split: 80/20
+- Batch size: 8
+- Optimizer: Adam
+- Learning rate: 1e-4
+- Epochs: 30
+- Best model selected using validation loss
+
+Checkpoint path:
+```
+/content/drive/MyDrive/spatial-temporal-defect-segmentation/best_unet.pth
+```
+
+---
+
+## Evaluation Metrics
+
+- Dice Coefficient
+- Intersection over Union (IoU)
+- Precision
+- Recall
+
+Metrics are computed on validation set using the best saved model.
+
+---
+
+## Results
+
+- Dice: ~0.97
+- IoU: ~0.95
+- Precision: ~0.97
+- Recall: ~0.97
+
+Note: High scores are influenced by strong class imbalance in the dataset.
+
+---
+
+## Visualization
+
+Outputs include:
+
+- Input thermal image
+- Ground truth mask
+- Predicted segmentation mask
+
+Used for qualitative validation of defect localization.
+
+---
+
+## Key Observations
+
+- Strong class imbalance (very small defect regions)
+- Dice loss improves sensitivity to small objects
+- Validation loss used for model selection
+- Model converges quickly due to dominant background class
+
+---
+
+## Future Work
+
+- Extend to temporal sequence modeling
+- Compare with DeepLabV3+
+- Add focal loss for imbalance handling
+- Add post-processing for defect area estimation (mm²)
+- Improve generalization across thermal conditions
+
+---
+
+## Citation
+
+If you use this work, please cite:
 
 ```bibtex
-@misc{garciavargas2025dataset,
+@dataset{garciafernandes2025cfrp,
   author = {Garcia Vargas, Iago and Fernandes, Henrique},
-  title = {Thermal Inspection Dataset for Defect Segmentation in CFRP Laminates},
-  year = {2025},
+  title  = {Thermal Inspection Dataset for Defect Segmentation in CFRP Laminates},
+  year   = {2025},
   publisher = {Mendeley Data},
   version = {V1},
-  doi = {10.17632/jrsb4b9yy5.1}
+  doi = {10.17632/jrsb4b9yy5.1},
+  url = {https://data.mendeley.com/datasets/jrsb4b9yy5}
 }
-
-@article{garciavargas2025methodology,
-  author = {Garcia Rosa, Renan and Barella, Bruno Pereira and Garcia Vargas, Iago and Tarpani, Jos{\'e} Ricardo and Herrmann, Hans-Georg and Fernandes, Henrique},
-  title = {Advanced Thermal Imaging Processing and Deep Learning Integration for Enhanced Defect Detection in Carbon Fiber-Reinforced Polymer Laminates},
-  journal = {Materials},
-  volume = {18},
-  number = {7},
-  pages = {1448},
-  year = {2025},
-  doi = {10.3390/ma18071448}
-}
+```
