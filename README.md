@@ -132,19 +132,7 @@ Used for qualitative validation of defect localization.
 
 ---
 
-## Future Work
-
-- Extend to temporal sequence modeling
-- Compare with DeepLabV3+
-- Add focal loss for imbalance handling
-- Add post-processing for defect area estimation (mm²)
-- Improve generalization across thermal conditions
-
----
-
 ## Citation
-
-If you use this work, please cite:
 
 ```bibtex
 @dataset{garciafernandes2025cfrp,
